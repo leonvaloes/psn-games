@@ -1,0 +1,12 @@
+{
+  "name": "psn-games-e2e",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.59.1"
+  }
+}
