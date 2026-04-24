@@ -5,7 +5,7 @@
       <button
         class="vote-btn up"
         :class="{ active: guide.userVote === 1 }"
-        :disabled="!isAuthenticated || guide.isAuthor"
+        :disabled="!isAuthenticated || guide.isAuthor || isVoting"
         :title="guide.isAuthor ? 'Não é possível votar no próprio guia' : 'Upvote'"
         @click.stop="$emit('vote', guide._id, 1)"
       >
@@ -19,7 +19,7 @@
       <button
         class="vote-btn down"
         :class="{ active: guide.userVote === -1 }"
-        :disabled="!isAuthenticated || guide.isAuthor"
+        :disabled="!isAuthenticated || guide.isAuthor || isVoting"
         :title="guide.isAuthor ? 'Não é possível votar no próprio guia' : 'Downvote'"
         @click.stop="$emit('vote', guide._id, -1)"
       >
@@ -78,7 +78,8 @@ import { useAuth } from '../composables/useAuth.js';
 
 const props = defineProps({
   guide: { type: Object, required: true },
-  achievementMap: { type: Map, default: () => new Map() }
+  achievementMap: { type: Map, default: () => new Map() },
+  isVoting: { type: Boolean, default: false }
 });
 defineEmits(['vote', 'delete']);
 

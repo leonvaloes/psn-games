@@ -47,6 +47,48 @@ npm run test:report       # open HTML report
 ```
 Tests expect the full stack running. Set `BASE_URL` env var to target a different host (defaults to `http://localhost`).
 
+## Testing Requirements
+
+- Before reporting back on any feature implementation or bug fix, you must validate that feature with tests relevant to the change.
+- Do not provide a completion status based only on code inspection; execute tests whenever the environment allows it.
+- Prioritize adding or running both unit and E2E tests for the affected behavior whenever applicable.
+- Stress-test critical flows, especially stateful interactions such as voting, toggles, retries, concurrency, and repeated user actions.
+- When a bug involves inconsistent state, race conditions, or repeated interactions, test the happy path, toggling back and forth, rapid repeated actions, and multi-user style sequences.
+- If tests cannot be executed because the environment is missing dependencies, services, or configuration, explicitly state that limitation in the final report.
+
+### Mandatory Validation Checklist Per Feature
+
+Before giving a final response about a feature, fix, or refactor, complete this checklist whenever applicable:
+
+- Run or add unit tests covering the changed logic.
+- Run or add E2E tests covering the user-visible flow.
+- For every new feature, actively execute these tests instead of only proposing them.
+- Exercise the feature manually or through automated repeated interactions when the change involves UI state or async behavior.
+- Stress-test repeated actions to catch race conditions, duplicated requests, toggle inconsistencies, stale UI state, and multi-user transition issues.
+- Verify the main success path.
+- Verify important edge cases.
+- Verify rollback/toggle behavior when the feature supports reversing state.
+- Report exactly which tests were run.
+- Report exactly which scenarios were validated.
+- If any part was not tested, state what was skipped and why.
+
+### Minimum Stress-Test Scenarios
+
+For interactive features, validate at least these scenarios when relevant:
+
+- Single action once.
+- Same action repeated quickly multiple times.
+- Toggle from one state to another and back again.
+- Two users affecting the same entity in sequence.
+- Refresh/reload after the action to confirm persistence.
+- Sorting/order updates after state changes, when the UI depends on ranking or counts.
+
+### Execution Rule
+
+- For each new feature, bug fix, or behavioral change, you must execute the relevant tests before reporting completion whenever the environment supports it.
+- This includes unit tests, E2E tests, and stress/repetition scenarios appropriate to the feature.
+- If execution is blocked, state exactly what prevented the tests from running and what remains unverified.
+
 ### Full Stack via Docker
 ```bash
 docker compose up --build          # runs mongo + backend + frontend

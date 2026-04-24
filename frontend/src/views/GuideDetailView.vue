@@ -55,7 +55,7 @@
               <button
                 class="vote-btn up"
                 :class="{ active: guide.userVote === 1 }"
-                :disabled="!isAuthenticated || guide.isAuthor"
+                :disabled="!isAuthenticated || guide.isAuthor || isVoting"
                 :title="!isAuthenticated ? 'Faça login para votar' : guide.isAuthor ? 'Não pode votar no próprio guia' : 'Útil'"
                 @click="vote(1)"
               >
@@ -67,7 +67,7 @@
               <button
                 class="vote-btn down"
                 :class="{ active: guide.userVote === -1 }"
-                :disabled="!isAuthenticated || guide.isAuthor"
+                :disabled="!isAuthenticated || guide.isAuthor || isVoting"
                 :title="!isAuthenticated ? 'Faça login para votar' : guide.isAuthor ? 'Não pode votar no próprio guia' : 'Não útil'"
                 @click="vote(-1)"
               >
@@ -114,8 +114,8 @@
             <div class="conquest-header">
               <div class="conquest-thumb">
                 <img
-                  v-if="achievementMap.get(section.name)?.image"
-                  :src="achievementMap.get(section.name).image"
+                  v-if="achievementMap.get(section.name.toLowerCase())?.image"
+                  :src="achievementMap.get(section.name.toLowerCase()).image"
                   :alt="section.name"
                 />
                 <svg v-else viewBox="0 0 24 24" fill="currentColor">
@@ -125,16 +125,16 @@
               <div class="conquest-info">
                 <span class="conquest-badge">CONQUISTA</span>
                 <h3 class="conquest-name">{{ section.name }}</h3>
-                <p v-if="achievementMap.get(section.name)?.description" class="conquest-desc">
-                  {{ achievementMap.get(section.name).description }}
+                <p v-if="achievementMap.get(section.name.toLowerCase())?.description" class="conquest-desc">
+                  {{ achievementMap.get(section.name.toLowerCase()).description }}
                 </p>
               </div>
               <div
-                v-if="achievementMap.get(section.name)?.percent"
+                v-if="achievementMap.get(section.name.toLowerCase())?.percent"
                 class="conquest-pct"
-                :title="`${achievementMap.get(section.name).percent}% dos jogadores obtiveram`"
+                :title="`${achievementMap.get(section.name.toLowerCase()).percent}% dos jogadores obtiveram`"
               >
-                {{ Math.round(parseFloat(achievementMap.get(section.name).percent)) }}%
+                {{ Math.round(parseFloat(achievementMap.get(section.name.toLowerCase()).percent)) }}%
               </div>
             </div>
 
@@ -171,6 +171,7 @@ const { isAuthenticated } = useAuth();
 const guide    = ref(null);
 const loading  = ref(true);
 const error    = ref('');
+const isVoting = ref(false);
 const achievementMap = ref(new Map()); // name.toLowerCase() → achievement
 
 // ─── Parse content into sections ─────────────────────────────────────────────
@@ -208,10 +209,14 @@ function formatDate(iso) {
 }
 
 async function vote(v) {
-  if (!isAuthenticated.value || guide.value?.isAuthor) return;
+  if (!isAuthenticated.value || guide.value?.isAuthor || isVoting.value) return;
+  isVoting.value = true;
   try {
     guide.value = await guidesApi.vote(slug, id, v);
   } catch { /* silencioso */ }
+  finally {
+    isVoting.value = false;
+  }
 }
 
 async function deleteGuide() {

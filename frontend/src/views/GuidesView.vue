@@ -59,6 +59,7 @@
           :key="guide._id"
           :guide="guide"
           :achievement-map="achievementMap"
+          :is-voting="votingGuideIds.has(guide._id)"
           @vote="handleVote"
           @delete="handleDelete"
         />
@@ -68,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, RouterLink } from 'vue-router';
 import GuideCard from '../components/GuideCard.vue';
 import { guidesApi, getAchievements } from '../services/api.js';
@@ -82,6 +83,7 @@ const guides         = ref([]);
 const loading        = ref(true);
 const sortBy         = ref('score');
 const achievementMap = ref(new Map());
+const votingGuideIds = ref(new Set());
 
 const sortOptions = [
   { label: 'Mais votados', value: 'score' },
@@ -116,12 +118,20 @@ async function load() {
 }
 
 async function handleVote(guideId, vote) {
-  if (!isAuthenticated.value) return;
+  if (!isAuthenticated.value || votingGuideIds.value.has(guideId)) return;
+
+  votingGuideIds.value = new Set(votingGuideIds.value).add(guideId);
+
   try {
     const updated = await guidesApi.vote(slug, guideId, vote);
     const idx = guides.value.findIndex(g => g._id === guideId);
     if (idx >= 0) guides.value[idx] = updated;
   } catch { /* silencioso */ }
+  finally {
+    const next = new Set(votingGuideIds.value);
+    next.delete(guideId);
+    votingGuideIds.value = next;
+  }
 }
 
 async function handleDelete(guideId) {

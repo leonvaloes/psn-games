@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Guide from '../models/Guide.js';
 import User  from '../models/User.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
@@ -120,28 +121,62 @@ router.post('/:gameSlug/:id/vote', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Não é possível votar no próprio guia' });
     }
 
-    const upIdx   = guide.upvotes.findIndex(id => id.toString() === req.userId);
-    const downIdx = guide.downvotes.findIndex(id => id.toString() === req.userId);
-
-    if (vote === 1) {
-      if (upIdx >= 0) {
-        guide.upvotes.splice(upIdx, 1);                          // toggle off
-      } else {
-        guide.upvotes.push(req.userId);
-        if (downIdx >= 0) guide.downvotes.splice(downIdx, 1);   // troca de voto
+    const userId = req.userId;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const removeUserFrom = field => ({
+      $filter: {
+        input: `$${field}`,
+        as: 'existingVote',
+        cond: { $ne: ['$$existingVote', userObjectId] }
       }
-    } else {
-      if (downIdx >= 0) {
-        guide.downvotes.splice(downIdx, 1);                      // toggle off
-      } else {
-        guide.downvotes.push(req.userId);
-        if (upIdx >= 0) guide.upvotes.splice(upIdx, 1);         // troca de voto
-      }
-    }
+    });
 
-    await guide.save();
-    // Re-fetch para garantir ObjectIds corretamente castados
-    const updated = await Guide.findById(guide._id);
+    const updated = await Guide.findOneAndUpdate(
+      { _id: guide._id, gameSlug: req.params.gameSlug },
+      vote === 1
+        ? [
+            {
+              $set: {
+                upvotes: {
+                  $cond: [
+                    { $in: [userObjectId, '$upvotes'] },
+                    removeUserFrom('upvotes'),
+                    { $concatArrays: [removeUserFrom('upvotes'), [userObjectId]] }
+                  ]
+                },
+                downvotes: {
+                  $cond: [
+                    { $in: [userObjectId, '$upvotes'] },
+                    '$downvotes',
+                    removeUserFrom('downvotes')
+                  ]
+                }
+              }
+            }
+          ]
+        : [
+            {
+              $set: {
+                downvotes: {
+                  $cond: [
+                    { $in: [userObjectId, '$downvotes'] },
+                    removeUserFrom('downvotes'),
+                    { $concatArrays: [removeUserFrom('downvotes'), [userObjectId]] }
+                  ]
+                },
+                upvotes: {
+                  $cond: [
+                    { $in: [userObjectId, '$downvotes'] },
+                    '$upvotes',
+                    removeUserFrom('upvotes')
+                  ]
+                }
+              }
+            }
+          ],
+      { new: true }
+    );
+    
     res.json(updated.toPublic(req.userId));
   } catch {
     res.status(500).json({ error: 'Erro ao processar voto' });
