@@ -48,9 +48,24 @@
           <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
         </svg>
         <p>Nenhum guia publicado ainda para este jogo.</p>
-        <RouterLink v-if="isAuthenticated" :to="`/game/${slug}/guides/new`" class="btn-new">
-          Seja o primeiro!
+        <div v-if="isAuthenticated" class="empty-actions">
+          <button class="btn-new ai" :disabled="generatingAi" @click="generateAiGuide">
+            <svg v-if="generatingAi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" stroke-dasharray="40" stroke-dashoffset="10"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3 14.2 8.8 20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2Z"/>
+            </svg>
+            {{ generatingAi ? 'Gerando...' : 'Gerar com IA' }}
+          </button>
+          <RouterLink :to="`/game/${slug}/guides/new`" class="btn-new outline">
+            Escrever manualmente
+          </RouterLink>
+        </div>
+        <RouterLink v-else to="/login" class="btn-new outline">
+          Entre para publicar
         </RouterLink>
+        <span v-if="aiError" class="ai-error">{{ aiError }}</span>
       </div>
 
       <div v-else class="guides-list">
@@ -70,17 +85,20 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, RouterLink } from 'vue-router';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import GuideCard from '../components/GuideCard.vue';
 import { guidesApi, getAchievements } from '../services/api.js';
 import { useAuth } from '../composables/useAuth.js';
 
 const route = useRoute();
+const router = useRouter();
 const slug  = route.params.slug;
 const { isAuthenticated } = useAuth();
 
 const guides         = ref([]);
 const loading        = ref(true);
+const generatingAi   = ref(false);
+const aiError        = ref('');
 const sortBy         = ref('score');
 const achievementMap = ref(new Map());
 const votingGuideIds = ref(new Set());
@@ -140,6 +158,23 @@ async function handleDelete(guideId) {
     await guidesApi.remove(slug, guideId);
     guides.value = guides.value.filter(g => g._id !== guideId);
   } catch { /* silencioso */ }
+}
+
+async function generateAiGuide() {
+  if (generatingAi.value) return;
+
+  generatingAi.value = true;
+  aiError.value = '';
+
+  try {
+    const guide = await guidesApi.generateWithAi(slug);
+    router.push(`/game/${slug}/guides/${guide._id}`);
+  } catch (e) {
+    aiError.value = e.response?.data?.error || 'Erro ao gerar guia com IA.';
+    await load();
+  } finally {
+    generatingAi.value = false;
+  }
 }
 
 onMounted(load);
@@ -205,12 +240,15 @@ h1 { font-size: 26px; font-weight: 700; }
 
 .btn-new svg { width: 16px; height: 16px; }
 .btn-new:hover { background: var(--accent-hover); }
+.btn-new:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-new.outline {
   background: transparent;
   border: 1px solid var(--accent);
   color: var(--accent);
 }
 .btn-new.outline:hover { background: rgba(0,112,209,0.1); }
+.btn-new.ai svg { animation: none; }
+.btn-new.ai:disabled svg { animation: spin 0.8s linear infinite; }
 
 .filters {
   display: flex;
@@ -253,6 +291,20 @@ h1 { font-size: 26px; font-weight: 700; }
 }
 
 .state-box svg { width: 48px; height: 48px; opacity: 0.3; }
+
+.empty-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ai-error {
+  max-width: 460px;
+  color: #ff6b6b;
+  font-size: 13px;
+  text-align: center;
+}
 
 .spinner {
   width: 36px;

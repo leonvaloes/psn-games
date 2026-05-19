@@ -50,6 +50,7 @@ export const guidesApi = {
   list:   (gameSlug, params) => api.get(`/guides/${gameSlug}`, { params }).then(r => r.data),
   get:    (gameSlug, id)     => api.get(`/guides/${gameSlug}/${id}`).then(r => r.data),
   create: (gameSlug, body)   => api.post(`/guides/${gameSlug}`, body).then(r => r.data),
+  generateWithAi: (gameSlug) => api.post(`/guides/${gameSlug}/ai-generate`).then(r => r.data),
   update: (gameSlug, id, body) => api.put(`/guides/${gameSlug}/${id}`, body).then(r => r.data),
   remove: (gameSlug, id)     => api.delete(`/guides/${gameSlug}/${id}`).then(r => r.data),
   vote:   (gameSlug, id, vote) => api.post(`/guides/${gameSlug}/${id}/vote`, { vote }).then(r => r.data)

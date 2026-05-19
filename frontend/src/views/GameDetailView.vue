@@ -77,11 +77,26 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
             </svg>
-            <div>
-              <strong>Guias de Platina</strong>
-              <span>Estratégias e dicas da comunidade para 100% do jogo</span>
-            </div>
+          <div>
+            <strong>Guias de Platina</strong>
+            <span>{{ guidesBannerText }}</span>
           </div>
+        </div>
+        <div class="guides-actions">
+          <button
+            v-if="isAuthenticated && !loadingGuidesCount && guidesCount === 0"
+            class="btn-guides ai"
+            :disabled="generatingAiGuide"
+            @click="generateAiGuide"
+          >
+            <svg v-if="generatingAiGuide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" stroke-dasharray="40" stroke-dashoffset="10"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3 14.2 8.8 20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2Z"/>
+            </svg>
+            {{ generatingAiGuide ? 'Gerando...' : 'Gerar com IA' }}
+          </button>
           <RouterLink :to="`/game/${slug}/guides`" class="btn-guides">
             Ver guias
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -89,6 +104,8 @@
             </svg>
           </RouterLink>
         </div>
+        </div>
+        <span v-if="aiGuideError" class="ai-guide-error">{{ aiGuideError }}</span>
 
         <div class="trophies-section">
           <div class="section-header">
@@ -150,14 +167,15 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRoute, RouterLink } from 'vue-router';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import TrophyCard from '../components/TrophyCard.vue';
 import AchievementGuideModal from '../components/AchievementGuideModal.vue';
-import { getGame, getAchievements, userApi } from '../services/api.js';
+import { getGame, getAchievements, userApi, guidesApi } from '../services/api.js';
 import { useAuth } from '../composables/useAuth.js';
 import { useFavorites } from '../composables/useFavorites.js';
 
 const route = useRoute();
+const router = useRouter();
 const slug  = route.params.slug;
 
 const { isAuthenticated } = useAuth();
@@ -169,6 +187,7 @@ const totalTrophies = ref(0);
 const trophyPage  = ref(1);
 const hasMoreTrophies = ref(false);
 const doneIds     = ref(new Set());
+const guidesCount = ref(null);
 
 const modalAchievement = ref(null);
 const showModal        = ref(false);
@@ -187,14 +206,23 @@ onUnmounted(() => window.removeEventListener('keydown', onKeyDown));
 const loadingGame  = ref(true);
 const loadingTrophies = ref(true);
 const loadingMoreTrophies = ref(false);
+const loadingGuidesCount = ref(true);
+const generatingAiGuide = ref(false);
 const errorGame    = ref('');
 const errorTrophies = ref('');
+const aiGuideError = ref('');
 const truncated    = ref(true);
 
 const shortDesc   = computed(() => game.value?.description_raw?.slice(0, 400) + '...');
 const progressPct = computed(() =>
   trophies.value.length ? Math.round((doneIds.value.size / trophies.value.length) * 100) : 0
 );
+const guidesBannerText = computed(() => {
+  if (loadingGuidesCount.value) return 'Estratégias e dicas da comunidade para 100% do jogo';
+  if (guidesCount.value === null) return 'Estratégias e dicas da comunidade para 100% do jogo';
+  if (guidesCount.value === 0) return 'Nenhum guia publicado ainda. Gere um rascunho inicial com IA.';
+  return `${guidesCount.value} guia${guidesCount.value !== 1 ? 's' : ''} publicado${guidesCount.value !== 1 ? 's' : ''}`;
+});
 
 const psnPlatforms = computed(() => {
   if (!game.value?.platforms) return [];
@@ -245,6 +273,35 @@ async function loadMoreTrophies() {
   }
 }
 
+async function loadGuidesCount() {
+  loadingGuidesCount.value = true;
+  try {
+    const data = await guidesApi.list(slug, { limit: 1 });
+    guidesCount.value = data.count || 0;
+  } catch {
+    guidesCount.value = null;
+  } finally {
+    loadingGuidesCount.value = false;
+  }
+}
+
+async function generateAiGuide() {
+  if (generatingAiGuide.value) return;
+
+  generatingAiGuide.value = true;
+  aiGuideError.value = '';
+
+  try {
+    const guide = await guidesApi.generateWithAi(slug);
+    router.push(`/game/${slug}/guides/${guide._id}`);
+  } catch (e) {
+    aiGuideError.value = e.response?.data?.error || 'Erro ao gerar guia com IA.';
+    await loadGuidesCount();
+  } finally {
+    generatingAiGuide.value = false;
+  }
+}
+
 onMounted(async () => {
   // Carrega jogo
   try {
@@ -254,6 +311,8 @@ onMounted(async () => {
   } finally {
     loadingGame.value = false;
   }
+
+  loadGuidesCount();
 
   // Carrega conquistas da RAWG
   try {
@@ -577,12 +636,21 @@ onMounted(async () => {
   color: var(--text-muted);
 }
 
+.guides-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .btn-guides {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 8px 18px;
   background: var(--accent);
+  border: none;
   border-radius: var(--radius-sm);
   color: #fff;
   font-size: 13px;
@@ -594,4 +662,23 @@ onMounted(async () => {
 
 .btn-guides svg { width: 14px; height: 14px; }
 .btn-guides:hover { background: var(--accent-hover); }
+.btn-guides:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-guides.ai:disabled svg { animation: spin 0.8s linear infinite; }
+
+.ai-guide-error {
+  margin-top: -20px;
+  color: #ff6b6b;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .guides-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .guides-actions {
+    justify-content: flex-start;
+  }
+}
 </style>

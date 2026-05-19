@@ -2,6 +2,8 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Guide from '../models/Guide.js';
 import User  from '../models/User.js';
+import * as rawg from '../services/rawgService.js';
+import { generateGuideDraft } from '../services/aiGuideService.js';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -67,6 +69,46 @@ router.post('/:gameSlug', requireAuth, async (req, res) => {
     res.status(201).json(guide.toPublic(req.userId));
   } catch {
     res.status(500).json({ error: 'Erro ao criar guia' });
+  }
+});
+
+// ─── Gerar primeiro guia com IA (auth) ───────────────────────────────────────
+router.post('/:gameSlug/ai-generate', requireAuth, async (req, res) => {
+  const gameSlug = req.params.gameSlug;
+
+  try {
+    const existingCount = await Guide.countDocuments({ gameSlug });
+    if (existingCount > 0) {
+      return res.status(409).json({ error: 'Este jogo já possui guia publicado' });
+    }
+
+    const author = await User.findById(req.userId);
+    if (!author) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+    const [game, achievementsData] = await Promise.all([
+      rawg.getGame(gameSlug),
+      rawg.getGameAchievements(gameSlug, 1).catch(() => ({ results: [] }))
+    ]);
+
+    const draft = await generateGuideDraft({
+      game: { ...game, slug: gameSlug },
+      achievements: achievementsData.results || []
+    });
+
+    const guide = await Guide.create({
+      gameSlug,
+      title: draft.title,
+      content: draft.content,
+      authorId: req.userId,
+      authorName: author.username
+    });
+
+    res.status(201).json(guide.toPublic(req.userId));
+  } catch (err) {
+    const status = err.statusCode || 500;
+    res.status(status).json({
+      error: status === 503 ? err.message : 'Erro ao gerar guia com IA'
+    });
   }
 });
 
