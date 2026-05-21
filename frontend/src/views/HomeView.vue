@@ -2,10 +2,7 @@
   <div class="home">
     <header class="hero">
       <h1 class="logo">
-        <svg viewBox="0 0 24 24" fill="currentColor" class="ps-icon">
-          <path d="M8.985 2.596v17.548l3.915 1.261V6.688c0-.69.304-1.151.794-.991.636.181.762.872.762 1.561v5.105c2.organ.001 0 0 0 0 0zm0 0" />
-          <path d="M18.476 14.217c.692-.2 1.187-.67 1.187-1.509 0-1.511-1.368-1.972-3.043-1.972h-.544v.92h.336c.845 0 1.368.296 1.368.975 0 .635-.41.952-1.368.952h-.336V22l3.043-.98V15.46c.74-.177 1.3-.587 1.3-1.244zm-11.14 3.394c-1.3.435-2.604.48-2.604.48L2 17.053v1.302l5.336 1.81V22l3.043-.98v-5.104c0-.69-.218-1.012-.698-.814l-.345.509zm0 0" />
-        </svg>
+        <span class="ps-mark" aria-hidden="true">PS</span>
         PSN Games
       </h1>
       <p class="subtitle">Busque qualquer jogo e veja as conquistas disponíveis</p>
@@ -140,10 +137,19 @@ async function loadMore() {
   letter-spacing: -0.5px;
 }
 
-.ps-icon {
-  width: 36px;
-  height: 36px;
-  color: var(--accent);
+.ps-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .subtitle {
